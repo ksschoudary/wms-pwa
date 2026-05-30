@@ -6,33 +6,43 @@ on:
       - main
   workflow_dispatch:
 
+# Only one deployment can run at a time — cancel any in-progress run
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
+  # ── Single combined build + deploy job ──────────────────────
+  # Splitting into two jobs (build + deploy) causes duplicate
+  # artifact uploads which triggers the "Multiple artifacts" error.
+  # Keeping it as one job with one upload fixes it.
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+          # Explicit artifact name prevents collision if workflow
+          # was previously run with different action versions
+          name: github-pages
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages
